@@ -41,17 +41,17 @@ Hold the menu key, right-click anything in the world, and act on it.
 ## Features
 
 - 🖱️ **Right-click context menu** with a clean, animated NUI (React + Vite).
-- 🔌 **Drop-in `ox_target` replacement** — existing scripts work without code changes (`provide 'ox_target'`).
+- 🔌 **Drop-in `ox_target` replacement** - existing scripts work without code changes (`provide 'ox_target'`).
 - 🧱 **Builder API** for custom menus (items, checkboxes, submenus, separators, info rows, copy-to-clipboard).
 - 🎯 **Screen raycast** resolves the entity / model / coordinates under the cursor.
-- 📦 **Zones** — sphere, box and polygon.
+- 📦 **Zones** - sphere, box and polygon.
 - 🎨 Per-item icons (Font Awesome), accent colors, descriptions and paging.
 
 ---
 
 ## How it works
 
-1. You hold the **menu key** (default `LEFT ALT`) — the NUI cursor appears.
+1. You hold the **menu key** (default `LEFT ALT`) - the NUI cursor appears.
 2. You **right-click** in the world.
 3. A screen-space raycast finds what is under the cursor (entity, model, world position).
 4. Every registered target callback is asked what to show for that hit.
@@ -74,7 +74,7 @@ There are two ways to register targets:
 ensure off-target
 ```
 
-> ⚠️ Because this resource declares `provide 'ox_target'`, **do not run the real `ox_target` at the same time** — they would conflict.
+> ⚠️ Because this resource declares `provide 'ox_target'`, **do not run the real `ox_target` at the same time** - they would conflict.
 
 ---
 
@@ -158,7 +158,7 @@ exports.ox_target:addGlobalVehicle({
 | `iconColor` | `{r,g,b}` | Accent color. |
 | `distance` | number | Max interact distance (default `7.0`). |
 | `canInteract` | function | `(entity, distance, coords, name, bone) → boolean`. |
-| `onSelect` | function | `(data)` — primary action. |
+| `onSelect` | function | `(data)` - primary action. |
 | `event` / `serverEvent` | string | Trigger a client / server event with `data`. |
 | `command` | string | Execute a console command. |
 | `export` | string | `'resource.function'`, called with `data`. |
@@ -243,7 +243,7 @@ What gets committed and what doesn't is handled by `.gitignore`:
 | `web/node_modules/` | ❌ | Reinstalled with `npm install`. |
 | `*.tsbuildinfo`, `web/dist/` | ❌ | Build cache. |
 
-> **TL;DR for your question:** yes — build with `npm run build`, then push.
+> **TL;DR for your question:** yes - build with `npm run build`, then push.
 > `node_modules` is ignored automatically (you don't even have to delete it),
 > and `web/build` **is** committed so the resource is ready to use out of the box.
 
@@ -261,4 +261,4 @@ and edge cases are in **[DOCS.md](DOCS.md)**.
 
 ## License
 
-MIT — do what you want, no warranty.
+MIT - do what you want, no warranty.
