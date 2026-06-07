@@ -23,6 +23,11 @@ function ContextMenu.Toggle()
         DisableControlAction(0, 24, true)
         DisableControlAction(0, 25, true)
         DisablePlayerFiring(PlayerId(), true)
+
+        if OxTargetMarkers then
+            OxTargetMarkers.draw()
+        end
+
         Wait(0)
     end
 end
@@ -186,6 +191,8 @@ local function RaycastScreen(screenPos, maxDistance, ignore)
     local _, hit, worldPos, _, entity = GetShapeTestResult(ray)
     if hit ~= 1 then return false, vector3(0, 0, 0), nil end
 
+    worldPos = vector3(worldPos.x, worldPos.y, worldPos.z)
+
     if entity and entity ~= 0 then
         local ok, etype = pcall(GetEntityType, entity)
         if not ok or etype == 0 or not DoesEntityExist(entity) then
@@ -204,7 +211,17 @@ local activeCheckCallbacks = {}
 RegisterNUICallback('ContextMenuPosition', function(data, cb)
     local sx, sy = GetActiveScreenResolution()
     local x, y = data.x / sx, data.y / sy
-    local hitSomething, worldPos, entity = RaycastScreen(vector2(x, y), Config.RaycastDistance, nil)
+
+    local markerZone = OxTargetMarkers and OxTargetMarkers.getAtScreen(x, y)
+
+    local hitSomething, worldPos, entity
+    if markerZone then
+        hitSomething, worldPos, entity = true, markerZone.coords, 0
+    else
+        hitSomething, worldPos, entity = RaycastScreen(vector2(x, y), Config.RaycastDistance, nil)
+    end
+
+    ContextMenu.Params.markerZone = markerZone
 
     activeCallbacks = {}
     activeCheckCallbacks = {}
