@@ -8,13 +8,14 @@ description 'Right-click context menu with an ox_target compatibility layer'
 version '1.0.0'
 
 provide 'ox_target'
+provide 'qtarget'
 shared_script 'shared/shared.lua'
 
 client_scripts {
     'client/keys.lua',
     'client/contextmenu.lua',
     'client/ox_target.lua',
-'exemple.lua',
+    'client/qtarget.lua',
 }
 
 ui_page 'web/build/index.html'
