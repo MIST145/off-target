@@ -1,15 +1,18 @@
-# off-target — Documentation
+# Off-Target — Documentation
 
-Complete reference for the native `ContextMenu` builder and the `ox_target` /
+Complete reference for the `Off-Target` menu exports and the `ox_target` /
 `qtarget` compatibility layers.
+
+> For a flat, copy-paste list of every export see **[exports.md](exports.md)**.
 
 - [Concepts](#concepts)
 - [Lifecycle](#lifecycle)
-- [Native API — ContextMenu](#native-api--contextmenu)
-  - [ContextMenu.Register](#contextmenuregister)
-  - [Builder methods](#builder-methods)
+- [Menu API — Off-Target exports](#menu-api--off-target-exports)
+  - [Register](#register)
+  - [Building entries](#building-entries)
+  - [Attaching behaviour](#attaching-behaviour)
   - [Styling & icons](#styling--icons)
-  - [Callbacks](#callbacks)
+- [Registration cleanup](#registration-cleanup)
 - [ox_target compatibility layer](#ox_target-compatibility-layer)
   - [Global targets](#global-targets)
   - [Models](#models)
@@ -31,11 +34,15 @@ Complete reference for the native `ContextMenu` builder and the `ox_target` /
 | **Entity** | The entity under the cursor (`0` if none). |
 | **Entity type** | `0` world, `1` ped, `2` vehicle, `3` object. |
 | **World position** | World coordinates of the hit point (`vector3`). |
-| **Builder** | Object you fill to describe the menu for the current hit. |
-| **Target / Option** | A single actionable entry registered via `ox_target`. |
+| **Item id** | The number returned by an `Add*` export, used as a parent or in `OnActivate`. |
+| **Target / Option** | A single actionable entry registered via `ox_target` / `qtarget`. |
 
 The menu is **rebuilt on every right-click**. Nothing is cached between opens,
 so menus always reflect live game state (lock status, ownership, distance…).
+
+The menu API is **flat and ID-based**: you add entries, you get ids back, and you
+attach behaviour to those ids. No object with methods is passed across the
+resource boundary — that is what makes it reliable from any resource.
 
 -
 
@@ -52,110 +59,123 @@ RaycastScreen() ──► hit, worldPos, entity
         │
         ▼
 For each registered callback:
-    builder = new CreateBuilder()
-    callback(builder, entity, entityType, worldPos, hit)
+    callback(entity, entityType, worldPos, hit)
+        │  (the callback calls AddItem / OnActivate / ... )
+        ▼
+All entries merged ──► sent to NUI ──► rendered
         │
         ▼
-All builders merged ──► sent to NUI ──► rendered
-        │
-        ▼
-Click item ──► matching callback runs ──► menu closes
+Click item ──► its OnActivate handler runs ──► menu closes
 ```
 
 -
 
-## Native API — ContextMenu
+## Menu API — Off-Target exports
 
-The global `ContextMenu` table is available to every client script in this
-resource (and via `exports['off-target']:ContextMenu()` from other resources).
-
-### ContextMenu.Register
+Grab the resource exports once:
 
 ```lua
-local id = ContextMenu.Register(function(builder, entity, entityType, worldPos, hit)
-    -- fill the function with your code logic
+local ContextMenu = exports['Off-Target']
+```
+
+### Register
+
+```lua
+local index = ContextMenu:Register(function(entity, entityType, worldPos, hit)
+    -- build the menu here
 end)
 ```
 
 | Param | Type | Description |
 | --- | --- | --- |
-| `builder` | Builder | Fill it to describe the menu. |
 | `entity` | number | Entity under cursor (`0` if none). |
 | `entityType` | number | `0` world · `1` ped · `2` vehicle · `3` object. |
 | `worldPos` | vector3 | World hit position. |
 | `hit` | boolean | `true` if the ray hit something. |
 
 **Returns** the callback index. Returning early (`if not hit then return end`)
-or adding no items simply contributes nothing to the menu.
+or adding no entries simply contributes nothing to the menu.
 
-> Errors inside a callback are caught (`pcall`) and printed as
-> `^1[off-target] <error>^0`; they never break other callbacks.
+> Errors inside a callback are caught and printed as `^1[off-target] ...^0`;
+> they never break other callbacks. A dead callback (its resource stopped) is
+> removed automatically.
 
-### Builder methods
+### Building entries
 
-All `parent` arguments take a **local item id** (the return value of an
-`AddSubmenu`) or `0` for the root menu.
+All `parent` arguments take an **item id** (the return value of `AddSubmenu`) or
+`0` for the root menu. Each `Add*` export returns a numeric id.
 
-#### `:SetHeader(name, icon)`
+#### `SetHeader(name, icon)`
 Sets the menu title row.
 
 ```lua
-builder:SetHeader('Vehicle', 'fa-solid fa-car')
+ContextMenu:SetHeader('Vehicle', 'fa-solid fa-car')
 ```
 
-#### `:AddItem(parent, name, callback, icon, style, description) → id`
-A clickable action.
+#### `AddItem(parent, name, icon, style, description) → id`
+A clickable entry. Attach the action with `OnActivate`.
 
 ```lua
-builder:AddItem(0, 'Open trunk', function(entity, coords)
+local open = ContextMenu:AddItem(0, 'Open trunk', 'fa-solid fa-box', { color = { 99, 102, 241 } }, 'Opens the trunk.')
+ContextMenu:OnActivate(open, function(entity, coords)
     -- ...
-end, 'fa-solid fa-box', { color = { 99, 102, 241 } }, 'Opens the trunk.')
+end)
 ```
 
 | Param | Type | Notes |
 | --- | --- | --- |
 | `parent` | number | `0` for root, or a submenu id. |
 | `name` | string | Label. |
-| `callback` | function | `(entity, worldPos)` on click. Optional. |
 | `icon` | string | Font Awesome class. |
 | `style` | table | `{ color = { r, g, b } }`. |
 | `description` | string | Shown on hover. |
 
-#### `:AddCheckbox(parent, name, checked, callback, icon, style, description) → id`
-A toggle. The callback fires **without closing** the menu.
+#### `AddCheckbox(parent, name, checked, icon, style, description) → id`
+A toggle. The handler fires **without closing** the menu.
 
 ```lua
-builder:AddCheckbox(0, 'Engine', IsVehicleEngineOn(veh), function(checked, entity)
+local engine = ContextMenu:AddCheckbox(0, 'Engine', IsVehicleEngineOn(veh), 'fa-solid fa-power-off')
+ContextMenu:OnValueChanged(engine, function(checked, entity)
     SetVehicleEngineOn(entity, checked, false, true)
-end, 'fa-solid fa-power-off')
+end)
 ```
 
-Callback signature: `(checked, entity, worldPos)`.
-
-#### `:AddSubmenu(parent, name, icon, style, headerName, description) → id`
-A nested menu. Use the returned id as the `parent` of child items.
-
-```lua
-local doors = builder:AddSubmenu(0, 'Doors', 'fa-solid fa-door-open', nil, 'DOORS')
-builder:AddItem(doors, 'Lock',   function(e) SetVehicleDoorsLocked(e, 2) end)
-builder:AddItem(doors, 'Unlock', function(e) SetVehicleDoorsLocked(e, 1) end)
-```
-
+#### `AddSubmenu(parent, name, icon, style, headerName, description) → id`
+A nested menu. Use the returned id as the `parent` of child entries.
 `headerName` defaults to `name:upper()`.
 
-#### `:AddInfo(parent, name, value, icon, style, description) → id`
+```lua
+local doors = ContextMenu:AddSubmenu(0, 'Doors', 'fa-solid fa-door-open', nil, 'DOORS')
+
+local lock = ContextMenu:AddItem(doors, 'Lock', 'fa-solid fa-lock')
+ContextMenu:OnActivate(lock, function(e) SetVehicleDoorsLocked(e, 2) end)
+
+local unlock = ContextMenu:AddItem(doors, 'Unlock', 'fa-solid fa-lock-open')
+ContextMenu:OnActivate(unlock, function(e) SetVehicleDoorsLocked(e, 1) end)
+```
+
+#### `AddInfo(parent, name, value, icon, style, description) → id`
 A read-only row. If `value` is set, clicking **copies it to the clipboard**.
 
 ```lua
-builder:AddInfo(0, 'Plate', GetVehicleNumberPlateText(veh), 'fa-solid fa-id-card')
+ContextMenu:AddInfo(0, 'Plate', GetVehicleNumberPlateText(veh), 'fa-solid fa-id-card')
 ```
 
-#### `:AddSeparator(parent) → id`
+#### `AddSeparator(parent) → id`
 A horizontal divider.
 
 ```lua
-builder:AddSeparator(0)
+ContextMenu:AddSeparator(0)
 ```
+
+### Attaching behaviour
+
+| Export | Handler signature |
+| --- | --- |
+| `OnActivate(id, fn)` | `(entity, worldPos)` |
+| `OnValueChanged(id, fn)` | `(checked, entity, worldPos)` |
+
+`entity` and `worldPos` are the values captured at right-click time.
 
 ### Styling & icons
 
@@ -167,15 +187,22 @@ builder:AddSeparator(0)
 style = { color = { 239, 68, 68 } } -- red
 ```
 
-### Callbacks
+-
 
-| Source | Signature |
-| --- | --- |
-| `AddItem` | `(entity, worldPos)` |
-| `AddCheckbox` | `(checked, entity, worldPos)` |
+## Registration cleanup
 
-`entity` and `worldPos` are the values captured at right-click time
-(`ContextMenu.Params.lastEntity`, `lastWorldPosition`).
+Every registration is tagged with the resource that made it.
+
+- When that resource **stops or restarts**, its callbacks, options and zones are
+  removed automatically. No dead function references, no duplicates on restart.
+- When **Off-Target itself** restarts, other resources lose their registrations.
+  Re-register on the `off-target:ready` event:
+
+```lua
+AddEventHandler('off-target:ready', function()
+    -- re-run your ContextMenu:Register(...) / ox_target / qtarget calls
+end)
+```
 
 -
 
@@ -334,7 +361,7 @@ exports.ox_target:disableTargeting(true)  -- suppress all ox_target options
 exports.ox_target:disableTargeting(false)
 ```
 
-Native `ContextMenu.Register` callbacks are **not** affected by this flag.
+Off-Target `Register` callbacks are **not** affected by this flag.
 
 ### Option schema
 
@@ -401,3 +428,18 @@ When an option is clicked, the **first** present field wins, in this order:
 | Icons are blank squares | Font Awesome class is wrong; check it on fontawesome.com. |
 | Clicking does nothing | The option has no action field, or the callback errored (check `F8` console). |
 | `remove*` did nothing | `name` mismatch — names must match exactly. |
+| `Register called without a function callback` | The argument passed to `Register` was not a function. |
+| `Execution of function reference ... failed` | A registered callback's resource stopped without restarting. Off-Target removes it automatically; restart your resource (or use `off-target:ready`) to re-add it. |
+| Entries duplicated after restart | Make sure you `ensure`/`restart` your resource (not `start` twice). Off-Target de-duplicates by removing a resource's registrations when it stops. |
+
+-
+
+## Credits
+
+- **[Kiminaze — ContextMenu](https://github.com/Kiminaze/ContextMenu)** — the
+  original right-click context menu and the flat, ID-based export pattern this
+  resource follows.
+- **[ox_target](https://github.com/overextended/ox_target)** (Overextended) —
+  mirrored by the `ox_target` compatibility layer.
+- **[qtarget](https://github.com/overextended/qtarget)** — mirrored by the
+  `qtarget` compatibility layer.
