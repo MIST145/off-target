@@ -4,18 +4,21 @@ lua54 'yes'
 
 name 'off-target'
 author 'OffSey'
-description 'Right-click context menu with an ox_target compatibility layer'
-version '1.0.0'
+description 'Right-click context menu with ox_target and qtarget compatibility layers'
+version '2.0.0'
 
 provide 'ox_target'
 provide 'qtarget'
+
 shared_script 'shared/shared.lua'
 
 client_scripts {
-    'client/keys.lua',
-    'client/contextmenu.lua',
-    'client/ox_target.lua',
-    'client/qtarget.lua',
+    'client/core/keys.lua',
+    'client/core/contextmenu.lua',
+    'client/convert/_utils.lua',
+    'client/convert/target.lua',
+    'client/convert/ox_target.lua',
+    'client/convert/qtarget.lua',
 }
 
 ui_page 'web/build/index.html'
