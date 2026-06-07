@@ -1,9 +1,12 @@
 local OxTarget = {}
 
+local globalOtherPlayer = {}
+local globalSelfPlayer = {}
 local globalPlayer = {}
 local globalPed = {}
 local globalVehicle = {}
 local globalObject = {}
+local globalOptions = {}
 local models = {}
 local localEntities = {}
 local networkEntities = {}
@@ -118,7 +121,11 @@ ContextMenu.Register(function(builder, entity, entityType, worldPos, hit)
         end
 
         if entityType == 1 then
-            if IsPedAPlayer(entity) then
+            if IsPedAPlayer(entity) and entity == PlayerPedId() then
+                collectOptions(matched, globalSelfPlayer, entity, worldPos, distance)
+            elseif IsPedAPlayer(entity) and entity ~= PlayerPedId() then
+                collectOptions(matched, globalOtherPlayer, entity, worldPos, distance)
+            elseif IsPedAPlayer(entity) then
                 collectOptions(matched, globalPlayer, entity, worldPos, distance)
             else
                 collectOptions(matched, globalPed, entity, worldPos, distance)
@@ -136,6 +143,8 @@ ContextMenu.Register(function(builder, entity, entityType, worldPos, hit)
         end
     end
 
+    collectOptions(matched, globalOptions, entity, worldPos, distance)
+
     if #matched == 0 then return end
 
     for _, option in ipairs(matched) do
@@ -147,14 +156,21 @@ ContextMenu.Register(function(builder, entity, entityType, worldPos, hit)
 end)
 
 function OxTarget.addGlobalPlayer(options) tableInsertList(globalPlayer, options) end
+function OxTarget.addGlobalSelfPlayer(options) tableInsertList(globalSelfPlayer, options) end
+function OxTarget.addGlobalOtherPlayer(options) tableInsertList(globalOtherPlayer, options) end
 function OxTarget.addGlobalPed(options) tableInsertList(globalPed, options) end
 function OxTarget.addGlobalVehicle(options) tableInsertList(globalVehicle, options) end
 function OxTarget.addGlobalObject(options) tableInsertList(globalObject, options) end
 
+function OxTarget.addGlobalOption(options) tableInsertList(globalOptions, options) end
+
 function OxTarget.removeGlobalPlayer(names) removeByNames(globalPlayer, names) end
+function OxTarget.removeGlobalSelfPlayer(names) removeByNames(globalSelfPlayer, names) end
+function OxTarget.removeGlobalOtherPlayer(names) removeByNames(globalOtherPlayer, names) end
 function OxTarget.removeGlobalPed(names) removeByNames(globalPed, names) end
 function OxTarget.removeGlobalVehicle(names) removeByNames(globalVehicle, names) end
 function OxTarget.removeGlobalObject(names) removeByNames(globalObject, names) end
+function OxTarget.removeGlobalOption(names) removeByNames(globalOptions, names) end
 
 function OxTarget.addModel(input, options)
     for _, m in ipairs(ensureList(input)) do
@@ -197,43 +213,70 @@ function OxTarget.removeLocalEntity(input, names)
     end
 end
 
-local function registerZone(zone)
+---@param v any
+---@return vector3?
+local function toVec3(v)
+    if v == nil then return nil end
+    return vector3(v.x + 0.0, v.y + 0.0, v.z + 0.0)
+end
+
+local function registerZone(zone, params)
     zoneIdCounter = zoneIdCounter + 1
     zone.id = zoneIdCounter
     zone.options = zone.options or {}
+    zone.coords = toVec3(params.coords or zone.coords)
+    zone.marker = params.marker ~= false
+    zone.markerRadius = params.markerRadius or Config.MarkerClickRadius
+    zone.markerColor = params.markerColor
+    zone.distance = params.distance or Config.MarkerDrawDistance
     zones[zoneIdCounter] = zone
     return zoneIdCounter
 end
 
 function OxTarget.addSphereZone(params)
-    local coords = params.coords
+    local coords = toVec3(params.coords)
     local radius = params.radius or 2.0
     local zone = {
+        coords = coords,
         options = params.options,
         contains = function(_, point) return #(coords - point) <= radius end,
     }
-    return registerZone(zone)
+    return registerZone(zone, params)
 end
 
 function OxTarget.addBoxZone(params)
-    local coords = params.coords
-    local size = params.size or vector3(2.0, 2.0, 2.0)
+    local coords = toVec3(params.coords)
+    local size = toVec3(params.size or vector3(2.0, 2.0, 2.0))
     local half = size / 2.0
     local zone = {
+        coords = coords,
         options = params.options,
         contains = function(_, point)
             local d = point - coords
             return math.abs(d.x) <= half.x and math.abs(d.y) <= half.y and math.abs(d.z) <= half.z
         end,
     }
-    return registerZone(zone)
+    return registerZone(zone, params)
 end
 
 function OxTarget.addPolyZone(params)
     local points = params.points
     local minZ = params.minZ
     local maxZ = params.maxZ
+
+    local center = toVec3(params.coords)
+    if not center and points and #points > 0 then
+        local sx, sy, sz = 0.0, 0.0, 0.0
+        for i = 1, #points do
+            sx, sy, sz = sx + points[i].x, sy + points[i].y, sz + points[i].z
+        end
+        local z = ((minZ or 0) + (maxZ or 0)) / 2.0
+        if z == 0 then z = sz / #points end
+        center = vector3(sx / #points, sy / #points, z)
+    end
+
     local zone = {
+        coords = center,
         options = params.options,
         contains = function(_, point)
             if minZ and point.z < minZ then return false end
@@ -251,16 +294,134 @@ function OxTarget.addPolyZone(params)
             return inside
         end,
     }
-    return registerZone(zone)
+    return registerZone(zone, params)
 end
 
 function OxTarget.removeZone(id)
     zones[id] = nil
 end
 
+local markerDict, markerTexture = 'shared', 'emptydot_32'
+
+local markerSpriteReady = nil
+local markerDeadline = 0
+
+---@return boolean useSprite true if the streamed sprite is ready to draw
+local function ensureMarkerTexture()
+    if markerSpriteReady == true then return true end
+
+    if markerSpriteReady == nil then
+        markerSpriteReady = false
+        markerDeadline = GetGameTimer() + 3000
+        RequestStreamedTextureDict(markerDict, false)
+    end
+
+    if HasStreamedTextureDictLoaded(markerDict) then
+        markerSpriteReady = true
+        return true
+    end
+
+    return false
+end
+
+---@param zone table
+---@param playerCoords vector3
+---@return boolean onScreen, number sx, number sy, number distance
+local function getMarkerScreenPos(zone, playerCoords)
+    local coords = zone.coords
+    if not coords then return false, 0.0, 0.0, 0.0 end
+
+    local distance = #(playerCoords - coords)
+    if distance > (zone.distance or Config.MarkerDrawDistance) then
+        return false, 0.0, 0.0, distance
+    end
+
+    local onScreen, sx, sy = GetScreenCoordFromWorldCoord(coords.x, coords.y, coords.z)
+    if not onScreen then return false, 0.0, 0.0, distance end
+
+    return true, sx, sy, distance
+end
+
+---@param zone table
+---@return number r, number g, number b, number a
+local function markerColor(zone)
+    local c = zone.markerColor
+    if not c then return 155, 155, 155, 175 end
+    return c[1] or c.r or 155, c[2] or c.g or 155, c[3] or c.b or 155, c[4] or c.a or 175
+end
+
+local fbDict, fbTexture = 'commonmenu', 'common_medal'
+
+function OxTarget.drawZoneMarkers()
+    if targetingDisabled then return end
+
+    local useSprite = ensureMarkerTexture()
+    local waiting = not useSprite and GetGameTimer() < markerDeadline
+    if waiting then return end
+
+    if not useSprite then
+        RequestStreamedTextureDict(fbDict, false)
+        if not HasStreamedTextureDictLoaded(fbDict) then return end
+    end
+
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local aspect = GetAspectRatio(false)
+    local width = useSprite and 0.014 or 0.02
+    local height = width * aspect
+
+    for _, zone in pairs(zones) do
+        if zone.marker and zone.coords and #zone.options > 0 then
+            local onScreen, sx, sy = getMarkerScreenPos(zone, playerCoords)
+            if onScreen then
+                local r, g, b, a = markerColor(zone)
+                if useSprite then
+                    DrawSprite(markerDict, markerTexture, sx, sy, width, height, 0.0, r, g, b, a)
+                else
+                    DrawSprite(fbDict, fbTexture, sx, sy, width, height, 0.0, r, g, b, a)
+                end
+            end
+        end
+    end
+end
+
+---@param nx number normalized screen x (0-1)
+---@param ny number normalized screen y (0-1)
+---@return table? zone The targeted marker zone, or nil.
+function OxTarget.getMarkerAtScreen(nx, ny)
+    if targetingDisabled then return nil end
+
+    local playerCoords = GetEntityCoords(PlayerPedId())
+    local sw, sh = GetActiveScreenResolution()
+    local cursorX, cursorY = nx * sw, ny * sh
+
+    local best, bestDist
+    for _, zone in pairs(zones) do
+        if zone.marker and zone.coords and #zone.options > 0 then
+            local onScreen, sx, sy = getMarkerScreenPos(zone, playerCoords)
+            if onScreen then
+                local dx = sx * sw - cursorX
+                local dy = sy * sh - cursorY
+                local pixelDist = math.sqrt(dx * dx + dy * dy)
+                local radius = zone.markerRadius or Config.MarkerClickRadius
+
+                if pixelDist <= radius and (not bestDist or pixelDist < bestDist) then
+                    best, bestDist = zone, pixelDist
+                end
+            end
+        end
+    end
+
+    return best
+end
+
 function OxTarget.disableTargeting(state)
     targetingDisabled = state == true
 end
+
+OxTargetMarkers = {
+    draw = OxTarget.drawZoneMarkers,
+    getAtScreen = OxTarget.getMarkerAtScreen,
+}
 
 for name, fn in pairs(OxTarget) do
     exports(name, fn)
