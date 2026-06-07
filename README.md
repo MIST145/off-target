@@ -13,6 +13,11 @@ Hold the menu key, right-click anything in the world, and act on it.
 
 </div>
 
+## Preview:
+https://www.youtube.com/watch?v=peS7m275vEY
+<img width="392" height="312" alt="Capture d&#39;écran 2026-06-05 213419" src="https://github.com/user-attachments/assets/1168b28b-161a-4ee2-8aa7-46f654cc7778" />
+
+
 ## Table of contents
 
 - [Features](#features)
