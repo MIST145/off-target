@@ -1,7 +1,7 @@
 # off-target — Documentation
 
-Complete reference for the native `ContextMenu` builder and the `ox_target`
-compatibility layer.
+Complete reference for the native `ContextMenu` builder and the `ox_target` /
+`qtarget` compatibility layers.
 
 - [Concepts](#concepts)
 - [Lifecycle](#lifecycle)
@@ -21,7 +21,7 @@ compatibility layer.
 - [Behaviour & limitations](#behaviour--limitations)
 - [Troubleshooting](#troubleshooting)
 
----
+-
 
 ## Concepts
 
@@ -37,7 +37,7 @@ compatibility layer.
 The menu is **rebuilt on every right-click**. Nothing is cached between opens,
 so menus always reflect live game state (lock status, ownership, distance…).
 
----
+-
 
 ## Lifecycle
 
@@ -62,7 +62,7 @@ All builders merged ──► sent to NUI ──► rendered
 Click item ──► matching callback runs ──► menu closes
 ```
 
----
+-
 
 ## Native API — ContextMenu
 
@@ -73,7 +73,7 @@ resource (and via `exports['off-target']:ContextMenu()` from other resources).
 
 ```lua
 local id = ContextMenu.Register(function(builder, entity, entityType, worldPos, hit)
-    -- fill the builder
+    -- fill the function with your code logic
 end)
 ```
 
@@ -177,13 +177,18 @@ style = { color = { 239, 68, 68 } } -- red
 `entity` and `worldPos` are the values captured at right-click time
 (`ContextMenu.Params.lastEntity`, `lastWorldPosition`).
 
----
+-
 
 ## ox_target compatibility layer
 
-These exports mirror [ox_target](https://overextended.dev/ox_target). Because the
-manifest declares `provide 'ox_target'`, scripts calling `exports.ox_target:*`
-resolve to this resource.
+These exports mirror [ox_target](https://overextended.dev/ox_target).
+
+> ⚠️ **Rename the resource to `ox_target`** if you want the `ox_target`
+> integration. Scripts call `exports.ox_target:*`, which resolves by **resource
+> name** — so the folder must be named `ox_target` (and the real `ox_target`
+> must be removed). The `provide 'ox_target'` line alone is **not** enough for
+> export resolution. The **qtarget** layer (`exports.qtarget:*`) works regardless
+> of the folder name and does not require renaming.
 
 All `add*` functions accept either a **single option table** or an **array of
 option tables**.
@@ -193,18 +198,49 @@ option tables**.
 Applied to every entity of that class.
 
 ```lua
-exports.ox_target:addGlobalPlayer(options)
+exports.ox_target:addGlobalPlayer(options)        -- every player (self + others)
+exports.ox_target:addGlobalSelfPlayer(options)    -- only yourself
+exports.ox_target:addGlobalOtherPlayer(options)   -- only other players
 exports.ox_target:addGlobalPed(options)
 exports.ox_target:addGlobalVehicle(options)
 exports.ox_target:addGlobalObject(options)
 
-exports.ox_target:removeGlobalPlayer(names)   -- names: string | string[] | nil
+exports.ox_target:removeGlobalPlayer(names)        -- names: string | string[] | nil
+exports.ox_target:removeGlobalSelfPlayer(names)
+exports.ox_target:removeGlobalOtherPlayer(names)
 exports.ox_target:removeGlobalPed(names)
 exports.ox_target:removeGlobalVehicle(names)
 exports.ox_target:removeGlobalObject(names)
+
+exports.ox_target:addGlobalOption(options)         -- shows on every right-click hit
+exports.ox_target:removeGlobalOption(names)
 ```
 
 Passing `nil` to a `remove*` clears **all** options of that class.
+
+#### Player targeting scope
+
+- `addGlobalPlayer` — options show on **every** player (yourself and others).
+- `addGlobalSelfPlayer` — options show **only when targeting yourself**.
+- `addGlobalOtherPlayer` — options show **only on other players**, never yourself.
+
+Through the **qtarget** compatibility layer, the scope is selected with the
+`type` field on `:Player(...)`:
+
+```lua
+-- only other players
+exports.qtarget:Player({
+    options = { ... },
+    distance = 1.5,
+    type = 'other',   -- 'self' = yourself, 'other' = others, nil/omitted = everyone
+})
+```
+
+| `type` | Routed to |
+| --- | --- |
+| `'self'` | `addGlobalSelfPlayer` |
+| `'other'` | `addGlobalOtherPlayer` |
+| omitted / other | `addGlobalPlayer` |
 
 ### Models
 
@@ -261,9 +297,35 @@ exports.ox_target:removeZone(sphere)
 | --- | --- |
 | `addSphereZone` | `coords`, `radius` (default `2.0`), `options` |
 | `addBoxZone` | `coords`, `size` (vector3, default `2,2,2`), `options` |
-| `addPolyZone` | `points` (vector3[]), `minZ`, `maxZ`, `options` |
+| `addPolyZone` | `points` (vector3[]), `minZ`, `maxZ`, `options` (`coords` optional — auto-computed from points) |
 
 A zone option shows when the **hit world position** is inside the zone.
+
+#### Zone markers
+
+Every zone can draw an on-screen marker you can click directly (no need to point
+at geometry). Markers are optional and configured per zone:
+
+```lua
+exports.ox_target:addSphereZone({
+    coords       = vector3(195.0, -933.0, 30.0),
+    radius       = 2.0,
+    marker       = true,                  -- draw a marker (default true)
+    markerRadius = 20,                    -- click radius in pixels (default Config.MarkerClickRadius)
+    markerColor  = { 99, 102, 241 },      -- {r,g,b} or {r,g,b,a} (default grey)
+    distance     = 10.0,                  -- max draw distance (default Config.MarkerDrawDistance)
+    options      = { ... },
+})
+```
+
+| Param | Type | Default | Description |
+| --- | --- | --- | --- |
+| `marker` | boolean | `true` | Draw a marker for this zone. Set `false` to hide. |
+| `markerRadius` | number | `Config.MarkerClickRadius` | Click radius in pixels. |
+| `markerColor` | `{r,g,b[,a]}` | grey `155,155,155,175` | Marker tint. |
+| `distance` | number | `Config.MarkerDrawDistance` | Max distance the marker is drawn. |
+
+A marker only draws while the zone has at least one option.
 
 ### Disabling targeting
 
@@ -314,7 +376,7 @@ When an option is clicked, the **first** present field wins, in this order:
 4. `serverEvent` → `TriggerServerEvent(serverEvent, data)`
 5. `command` → `ExecuteCommand(command)`
 
----
+-
 
 ## Behaviour & limitations
 
@@ -327,7 +389,7 @@ When an option is clicked, the **first** present field wins, in this order:
   paginate.
 - Networked entity matching uses the entity's current network id at click time.
 
----
+-
 
 ## Troubleshooting
 
