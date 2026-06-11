@@ -3,18 +3,22 @@ game 'gta5'
 lua54 'yes'
 
 name 'off-target'
-author 'OffSey'
-description 'Right-click context menu with ox_target and qtarget compatibility layers'
-version '2.0.0'
+author 'OffSey & Mist🐐'
+description 'Right-click context menu with an ox_target compatibility layer'
+version '2.0.1'
 
 provide 'ox_target'
 provide 'qtarget'
 
-shared_script 'shared/shared.lua'
+shared_scripts {
+    'shared/shared.lua',
+    'shared/themes.lua',
+}
 
 client_scripts {
     'client/core/keys.lua',
     'client/core/contextmenu.lua',
+    'client/core/themes.lua',
     'client/convert/_utils.lua',
     'client/convert/target.lua',
     'client/convert/ox_target.lua',
