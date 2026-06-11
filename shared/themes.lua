@@ -1,0 +1,82 @@
+Themes = {
+    list = {
+        {
+            id   = 'midnight',
+            name = 'Midnight',
+            vars = {
+                ['--ctx-bg']     = 'rgba(10,11,18,0.88)',
+                ['--ctx-border'] = 'rgba(255,255,255,0.06)',
+                ['--ctx-hover']  = 'rgba(255,255,255,0.05)',
+                ['--ctx-text']   = 'rgba(255,255,255,0.55)',
+                ['--ctx-bright'] = 'rgba(255,255,255,0.85)',
+                ['--ctx-muted']  = 'rgba(255,255,255,0.20)',
+                ['--ctx-accent'] = '#6366f1',
+            },
+        },
+        {
+            id   = 'carbon',
+            name = 'Carbon',
+            vars = {
+                ['--ctx-bg']     = 'rgba(18,18,18,0.93)',
+                ['--ctx-border'] = 'rgba(255,255,255,0.08)',
+                ['--ctx-hover']  = 'rgba(255,255,255,0.07)',
+                ['--ctx-text']   = 'rgba(255,255,255,0.60)',
+                ['--ctx-bright'] = 'rgba(255,255,255,0.90)',
+                ['--ctx-muted']  = 'rgba(255,255,255,0.25)',
+                ['--ctx-accent'] = '#f59e0b',
+            },
+        },
+        {
+            id   = 'blood',
+            name = 'Blood',
+            vars = {
+                ['--ctx-bg']     = 'rgba(18,4,4,0.93)',
+                ['--ctx-border'] = 'rgba(239,68,68,0.15)',
+                ['--ctx-hover']  = 'rgba(239,68,68,0.08)',
+                ['--ctx-text']   = 'rgba(255,200,200,0.65)',
+                ['--ctx-bright'] = 'rgba(255,220,220,0.90)',
+                ['--ctx-muted']  = 'rgba(239,68,68,0.35)',
+                ['--ctx-accent'] = '#ef4444',
+            },
+        },
+        {
+            id   = 'forest',
+            name = 'Forest',
+            vars = {
+                ['--ctx-bg']     = 'rgba(4,13,8,0.93)',
+                ['--ctx-border'] = 'rgba(16,185,129,0.12)',
+                ['--ctx-hover']  = 'rgba(16,185,129,0.07)',
+                ['--ctx-text']   = 'rgba(180,230,210,0.65)',
+                ['--ctx-bright'] = 'rgba(210,250,230,0.90)',
+                ['--ctx-muted']  = 'rgba(16,185,129,0.35)',
+                ['--ctx-accent'] = '#10b981',
+            },
+        },
+        {
+            id   = 'sapphire',
+            name = 'Sapphire',
+            vars = {
+                ['--ctx-bg']     = 'rgba(4,9,20,0.93)',
+                ['--ctx-border'] = 'rgba(59,130,246,0.14)',
+                ['--ctx-hover']  = 'rgba(59,130,246,0.08)',
+                ['--ctx-text']   = 'rgba(180,210,255,0.65)',
+                ['--ctx-bright'] = 'rgba(210,230,255,0.90)',
+                ['--ctx-muted']  = 'rgba(59,130,246,0.35)',
+                ['--ctx-accent'] = '#3b82f6',
+            },
+        },
+        {
+            id   = 'ash',
+            name = 'Ash',
+            vars = {
+                ['--ctx-bg']     = 'rgba(28,28,33,0.93)',
+                ['--ctx-border'] = 'rgba(200,200,220,0.08)',
+                ['--ctx-hover']  = 'rgba(200,200,220,0.06)',
+                ['--ctx-text']   = 'rgba(200,200,210,0.55)',
+                ['--ctx-bright'] = 'rgba(230,230,240,0.88)',
+                ['--ctx-muted']  = 'rgba(200,200,220,0.22)',
+                ['--ctx-accent'] = '#a855f7',
+            },
+        },
+    },
+}
